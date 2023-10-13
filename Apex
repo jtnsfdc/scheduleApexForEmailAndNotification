@@ -4,6 +4,7 @@
 Global class InventoryPlanning_Notification implements Schedulable {
   //implements Schedulable
     //@future 
+    //13th Oct 2023 Bring to the Git
     public static set<String> getBmUser() {
         Integer m = Date.Today().Month()-1;
         Integer y = Date.Today().Year(); 
