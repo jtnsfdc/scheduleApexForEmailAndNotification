@@ -1,0 +1,504 @@
+//* System generated Notification & Email to BM,ZSM,DP(Inventory Module),timeDepedent
+ //* Scheduled Apex with future Method with Conditions
+ //* Jitendra Lenka 05/10/2022
+Global class InventoryPlanning_Notification implements Schedulable {
+  //implements Schedulable
+    //@future 
+    public static set<String> getBmUser() {
+        Integer m = Date.Today().Month()-1;
+        Integer y = Date.Today().Year(); 
+        String currentmonth = m.format();
+        String currentyear = String.valueOf(y);
+        set<String> bmUserId = new set<String>();
+        set<String> bmUserName = new set<String>();
+        
+        List<User> ur = [SELECT Id,SH_Code__c, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Profile.Name = 'Platform - CWP' AND IsActive = true];
+        list<Exception__c> nLIstBM=[SELECT ID,Month__c,Year__c,Cluster_Name__c,Cluster_Code__c,CreatedDate FROM Exception__c where Month__c=:currentmonth AND Year__c=:currentyear AND RecordType.Name='Inventory Planning' AND Cluster_Name__c != null AND Approval_Status__c !='Submitted' AND Approval_Status__c !='Approved' ]; 
+           //AND in above query need to add the condition where the BM have the data and not submited
+        	// Approval_Status__c!= submited and , Approval_Status__c != Approved
+        	System.debug('BM USER ='+ur);
+        	
+            for(User u:ur){
+                for(Exception__c data : nLIstBM){
+                    if(u.SH_Code__c== data.Cluster_Code__c){
+                    bmUserId.add(u.Id);
+                    bmUserName.add(u.Name);
+                        
+                    }
+                }}
+            
+            System.debug(bmUserId);
+            System.debug(bmUserName);
+            return bmUserId;       
+     }
+    
+     public static set<String> getZSMUser() {
+        Integer m = Date.Today().Month()-1;
+        Integer y = Date.Today().Year(); 
+        String currentmonth = m.format();
+        String currentyear = String.valueOf(y);
+        set<String> zsmUserId = new set<String>();
+        Set<String> setCode = new Set<String>();
+        Set<String> setName = new Set<String>();
+        Set<String> shCode = new Set<String>();
+        list<String> emailIds = new list<String>();
+        /* 
+        list<Exception__c> nLIstZSM=[SELECT ID,name,Month__c,Year__c,Region_Name__c,Region_Code__c,Plant_Code__c,Zone_Code__c,Zone_Name__c,CreatedDate FROM Exception__c where Month__c=:currentmonth AND Year__c=:currentyear AND Cluster_Name__c != null AND Approval_Status__c ='Submitted' AND Approval_Status__c !='Approved'AND Forward_to_Demand_Planner__c != 'Forwarded' ];  
+           //AND in above query need to add the condition where the BM have the data and not submited
+        	
+        	//System.debug('ZSM USER ='+ur);
+        	
+           
+                for(Exception__c exp:nLIstZSM){
+                        setCode.add(exp.Zone_Code__c);
+                        setCode.add(exp.Region_Code__c);
+                        setName.add(exp.Zone_Name__c);
+                        setName.add(exp.Region_Name__c);
+                        
+                }
+            */
+         List< Pidilite_Hierarchy__c> pdList=[SELECT Id, SH3_Employee_Name__c, SH3_Name__c, SH3_Email__c, SH6_Code__c, SH5_Email__c, SH6_Email__c, SH5_Employee_Name__c, SH6_Employee_Name__c, SH6_Name__c, SH7_Employee_Name__c, SH7_Email__c,CWP_User__c FROM Pidilite_Hierarchy__c ]; 
+          System.debug('pdList=='+pdList);
+          for(Pidilite_Hierarchy__c u: pdList){
+            //setIds.add(u.Id);
+            emailIds.add(u.SH6_Email__c);
+            //zmEmail = u.Email;
+          System.debug('ZsmEmailIds====>'+emailIds);   
+        }
+         List<User> ur = [SELECT Id, Name, SH_Code__c, SH_Name__c,Email,UserRole.Name,ProfileId,Profile.Name FROM User where Profile.Name = 'Platform SH4 and Above' AND Email IN :emailIds];
+                    for(User u:ur){
+                       zsmUserId.add(u.Id); 
+                    
+                }
+   
+        System.debug(zsmUserId);
+        return zsmUserId;       
+     }
+     public static set<String> getDPUser() {
+        Integer m = Date.Today().Month()-1;
+        Integer y = Date.Today().Year(); 
+        String currentmonth = m.format();
+        String currentyear = String.valueOf(y);
+        set<String> bmUserId = new set<String>();
+        set<String> dpUserId = new set<String>();
+        List<User> ur = [SELECT Id, Name,Email,SH_Code__c,UserRole.Name,ProfileId,Profile.Name,Division FROM User WHERE Profile.Name = 'Demand Planner' AND IsActive = true];
+        list<Exception__c> nLIstDP=[SELECT ID,name,Month__c,Year__c,Division_Code__c,CreatedDate FROM Exception__c where Month__c=:currentmonth AND Year__c=:currentyear AND RecordType.Name='Inventory Planning' AND Cluster_Name__c != null AND DP_Approval_Status__c = null AND Forward_to_Demand_Planner__c = 'Forwarded' ]; 
+        	
+        	System.debug('DP USER ='+ur);
+        	
+            for(User u:ur){
+                for(Exception__c exp :nLIstDP){
+                    if(u.Division == string.valueOf (exp.Division_Code__c)){
+                     dpUserId.add(u.Id);  
+                    } 
+                }
+            	}
+        System.debug(dpUserId);
+        return dpUserId;       
+     }
+    @future
+    public static void ReminderNotification(){
+       
+        //List<User> ur = [SELECT Id, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Profile.Name = 'HO Colloaborator' AND Division=: (currentUser.Division) AND IsActive = true];
+     DateTime firstDayTime = system.today(); //today currentDay
+     DateTime eighthDayTime = system.today()-1;//-1days
+     DateTime secondDayTime = system.today()-2;//-2days
+     DateTime thirdDayTime = system.today()-4; //-4days
+     DateTime fourthDayTime = system.today()-6;//-6days
+     DateTime fivthDayTime = system.today()-7;//-7days
+     DateTime sixthDayTime = system.today()-10; //-10days Tomorrow will put 24 here
+     DateTime seventhDayTime = system.today()-11;//-11days
+        Date first=firstDayTime.date();
+        Date second=secondDayTime.date();
+        Date third=thirdDayTime.date();
+        Date fourth=fourthDayTime.date();
+        Date fivth=fivthDayTime.date();
+        Date sixth=sixthDayTime.date();
+        Date seventh=seventhDayTime.date();
+        Date eighth=eighthDayTime.date();
+        //Date second=secondDayTime.date();
+        set<Date>firstDay= new set<Date>();
+        set<Date>secondDay= new set<Date>();
+        set<Date>thirdDay= new set<Date>();
+        set<Date>fourthDay= new set<Date>();
+        set<Date>fivthDay= new set<Date>();
+        set<Date>sixthDay= new set<Date>();
+        set<Date>seventhDay= new set<Date>();
+        set<Date>eighthDay= new set<Date>();
+     firstDay.add(first); //'yyyy-MM-dd'
+     secondDay.add(second); //'yyyy-MM-dd'
+     thirdDay.add(third);
+     fourthDay.add(fourth);
+     fivthDay.add(fivth);
+     sixthDay.add(sixth);
+     seventhDay.add(seventh);
+     eighthDay.add(eighth);
+     Integer m = Date.Today().Month()-1;
+     Integer y = Date.Today().Year(); 
+     String currentmonth = m.format();
+     String currentyear = String.valueOf(y);
+     set<Date>createdDatee= new set<Date>();
+     //String reMonth;
+     //String reYear;
+      set<string>reeMonth= new set<string>();
+      set<string>reeYear= new set<string>();
+      //String recMonth = reeMonth.toString();
+      //String recYear = reeYear.toString();
+        list<Exception__c> nLIst=[SELECT ID,Name,Month__c,Year__c,Cluster_Name__c, CreatedDate FROM Exception__c where Month__c=:currentmonth AND Year__c=:currentyear AND RecordType.Name='Inventory Planning' AND Cluster_Name__c != null Limit 1];
+        CustomNotificationType notificationType = [SELECT Id, DeveloperName FROM CustomNotificationType WHERE DeveloperName='Inventory_Forward_to_DP'];
+        Map<String, Object> pageRef = new Map<String, Object>{'type' => 'standard__webPage','attributes' => new Map<String, Object> {'url' => '/lightning/n/Inventory_Planning'}};
+        Messaging.CustomNotification notification = new Messaging.CustomNotification();   
+        for(Exception__c nListTime : nLIst){
+            DateTime inputDateTime=nListTime.CreatedDate;
+            Date inputDate = inputDateTime.date();
+            //Date inputDateSeven = inputDateTime.date()+4;
+            createdDatee.add(inputDate);
+            String reMonth= nListTime.Month__c;
+            String reYear = nListTime.Year__c;
+            reeMonth.add(reMonth);
+            reeYear.add(reYear);
+        }
+        System.debug('createdDatee=====>'+createdDatee);
+        System.debug('reeMonth=====>'+reeMonth);
+        System.debug('reeYear=====>'+reeYear);
+        System.debug('firstDay=====>'+firstDay);
+        System.debug('secondDay=====>'+secondDay);
+         System.debug('thirdDay=====>'+thirdDay);
+        System.debug('fourthDay=====>'+fourthDay);
+        System.debug('getBmUser()=====>'+getBmUser());
+        System.debug('getZSMUser()=====>'+getZSMUser());
+        System.debug('getDPUser()=====>'+getDPUser());
+       // System.debug('Integer.valueOf(firstDay)=====>'+Integer.valueOf(firstDay));
+       // System.debug('Integer.valueOf(createdDatee)=====>'+Integer.valueOf(createdDatee));
+        try {
+            	
+           //for( Exception__c nListTime : nLIst){
+               //On Day 1 and Day 2 NewDataEntered Day reminder-1
+               if( firstDay == createdDatee || eighthDay == createdDatee){
+                   notification.setTitle('Undesirable inventory status has been uploaded in the CWP portal');
+                   notification.setBody('Hi, The undesirable inventory status has been uploaded in the CWP portal for'+''+'Month'+''+reeMonth+''+'Year'+''+reeYear + 'Kindly check out and fill the plan for current month as soon as possible.');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getBmUser());
+                   system.debug('i m firstDay');
+               } 
+               //On Day 3 reminder-2
+               
+            else if(secondDay == createdDatee){
+                   notification.setTitle('Undesirable inventory status has been uploaded in the CWP portal');
+                   notification.setBody('Hi, The undesirable inventory status for'+''+'Month'+''+reeMonth+''+'Year'+''+reeYear + 'has been uploaded in the CWP portal. Kindly check out and fill the plan for current month as soon as possible.');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getBmUser());
+                   system.debug('i m secondDay');
+               }
+            
+               //OnDay 5 reminder-3
+               else if(thirdDay == createdDatee){
+                   notification.setTitle('Kindly fill the plan as soon as possible');
+                   notification.setBody('Hi, The plan of current month for undesirable inventory is pending.Kindly fill the plan as soon as possible since only last two days are remaining.' );
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getBmUser());
+                   system.debug('i m thirdDay');
+               }
+               //OnDay 7 reminder-4
+               else if(fourthDay == createdDatee){
+                   notification.setTitle('Last day to be filled for the current month');
+                   notification.setBody('Hi, Last day remaining for the undesirable inventory plan to be filled for the current month. Kindly fill & submit as the portal will be automatically closed today.');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getBmUser());
+                   system.debug('i m fourthDay');
+               }
+               //OnDay8 reminder-6
+               else if(fivthDay == createdDatee){
+                   notification.setTitle('Submitted by all the BMs');
+                   notification.setBody('Hi, The undesirable inventory plan for the current month has been submitted by all the BMs and is waiting for your action. Kindly take the necessary action.');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getZSMUser());
+                   system.debug('i m fivthDay ZSM');
+               }
+               //OnDay11 reminder-10
+               //Integer   =  Integer.valueOf(woquantity); 
+                else if(sixthDay == createdDatee){
+                   notification.setTitle('Submitted by all the ZSM and is waiting for your action');
+                   notification.setBody('Hi,The undesirable inventory plan for the current month has been submitted by all the ZSM and is waiting for your action. Kindly take the necessary action.');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getDPUser());
+                    system.debug('i m sixthDay');
+               }
+               //OnDay12 reminder-11
+                else if(seventhDay == createdDatee){
+                   notification.setTitle('Please fill the Inventery Planning');
+                   notification.setBody('<p>Hi,<br/>Please fill the Inventery Planning</p>');
+                   notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.setTargetPageRef(JSON.serialize(pageRef));
+                   notification.send(getDPUser());
+                    system.debug('i m seventhDay');
+               }
+               /*
+               else if(firstDay == nListTime.CreatedDate + 12){
+                    notification.setTitle(currentUser.Name+' '+'Sent Inventory Plan for Approval');
+                   notification.setBody('Hi'+' '+currentUser.Name+'.'+' '+'Please fill the Inventery Planning');
+                   //notification.setNotificationTypeId(notificationType.Id);
+                   notification.setTargetId('000000000000000AAA');
+                   notification.send(getDPUser());
+               }
+              */
+          // }    
+              
+        }
+        catch (Exception e) {
+            System.debug('Problem sending notification: ' + e.getMessage());
+        }  
+     
+
+}
+    @future
+    public static void sendEmail(){
+     DateTime firstDayTime = system.today(); //today currentDay
+     DateTime eighthDayTime = system.today()-1;//-1days
+     DateTime secondDayTime = system.today()-2;//-2days
+     DateTime thirdDayTime = system.today()-4; //-4days
+     DateTime fourthDayTime = system.today()-6;//-6days
+     DateTime fivthDayTime = system.today()-7;//-7days
+     DateTime sixthDayTime = system.today()-10; //-10days
+     DateTime seventhDayTime = system.today()-11;//-11days
+        Date first=firstDayTime.date();
+        Date second=secondDayTime.date();
+        Date third=thirdDayTime.date();
+        Date fourth=fourthDayTime.date();
+        Date fivth=fivthDayTime.date();
+        Date sixth=sixthDayTime.date();
+        Date seventh=seventhDayTime.date();
+        Date eighth=eighthDayTime.date();
+        //Date second=secondDayTime.date();
+        set<Date>firstDay= new set<Date>();
+        set<Date>secondDay= new set<Date>();
+        set<Date>thirdDay= new set<Date>();
+        set<Date>fourthDay= new set<Date>();
+        set<Date>fivthDay= new set<Date>();
+        set<Date>sixthDay= new set<Date>();
+        set<Date>seventhDay= new set<Date>();
+        set<Date>eighthDay= new set<Date>();
+     firstDay.add(first); //'yyyy-MM-dd'
+     secondDay.add(second); //'yyyy-MM-dd'
+     thirdDay.add(third);
+     fourthDay.add(fourth);
+     fivthDay.add(fivth);
+     sixthDay.add(sixth);
+     seventhDay.add(seventh);
+     eighthDay.add(eighth);
+          Integer m = Date.Today().Month()-1;
+          Integer y = Date.Today().Year(); 
+          String currentmonth = m.format();
+          String currentyear = String.valueOf(y);
+         set<Date>createdDatee= new set<Date>();
+         set<string>reeMonth= new set<string>();
+         set<string>reeYear= new set<string>();
+         //String recMonth = reeMonth.toString();
+         //String recYear = reeYear.toString();
+         map<id,string>zoneName= new map<id,string>();
+         map<id,string>clusterName= new map<id,string>();
+         
+        list<Exception__c> nLIst=[SELECT ID,Month__c,Year__c,Cluster_Name__c,Zone_Name__c,CreatedDate FROM Exception__c where Month__c=:currentmonth AND Year__c=:currentyear AND RecordType.Name='Inventory Planning' AND Cluster_Name__c != null];
+        List<User> bmUser = [SELECT Id,SH_Code__c, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Profile.Name = 'Platform - CWP'  AND IsActive = true];
+        messaging.SingleEmailMessage mail = new messaging.SingleEmailMessage();
+        List<Messaging.SingleEmailMessage> mailList = new List<Messaging.SingleEmailMessage>();
+        set<String> bmUserName;
+        set<String> bmUserEmail;
+        //Messaging.reserveSingleEmailCapacity(1); 
+         for(Exception__c nListTime : nLIst){
+            DateTime inputDateTime=nListTime.CreatedDate;
+            Date inputDate = inputDateTime.date();
+            //Date inputDateSeven = inputDateTime.date()+4;
+            createdDatee.add(inputDate);
+            String reMonth= nListTime.Month__c;
+            String reYear = nListTime.Year__c;
+            reeMonth.add(reMonth);
+            reeYear.add(reYear);
+            string zoneNam = nListTime.Zone_Name__c;
+            string clusterNam= nListTime.Cluster_Name__c;
+            zoneName.put(nListTime.id,zoneNam);
+            clusterName.put(nListTime.id,clusterNam);
+        }
+        System.debug('createdDatee=====>'+createdDatee);
+        System.debug('reeMonth=====>'+reeMonth);
+        System.debug('reeYear=====>'+reeYear);
+        System.debug('firstDay=====>'+firstDay);
+        System.debug('secondDay=====>'+secondDay);
+        System.debug('fourthDay=====>'+fourthDay);
+        List<string> toEmailAddresss = new List<string>();
+        List<string> toName = new List<string>();
+        List<string> toEmailAddresssZSM = new List<string>();
+        List<string> toNameZSM = new List<string>();
+        List<string> toEmailAddresssDP = new List<string>();
+        List<string> toNameDP = new List<string>();
+        list<User> bmUserList = [SELECT Id, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Id IN:getBmUser()];
+         for(User bmUserr :bmUserList){
+                //System.debug('BM USER FOR MAIL SENDING==='+bmUserr.Email); 
+                    toEmailAddresss.add(bmUserr.Email);
+                    toName.add(bmUserr.Name);
+                }
+        list<User> zsmUserList = [SELECT Id, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Id IN:getZSMUser()];
+          for(User zsmUserr :zsmUserList){
+                //System.debug('BM USER FOR MAIL SENDING==='+bmUserr.Email); 
+                    toEmailAddresssZSM.add(zsmUserr.Email);
+                    toNameZSM.add(zsmUserr.Name);
+                }
+        list<User> dpUserList = [SELECT Id, Name,Email,UserRole.Name,ProfileId,Profile.Name FROM User WHERE Id IN:getDPUser()];
+          for(User dpUserr :dpUserList){
+                //System.debug('BM USER FOR MAIL SENDING==='+bmUserr.Email); 
+                    toEmailAddresssDP.add(dpUserr.Email);
+                    toNameDP.add(dpUserr.Name);
+                }
+        try{ 
+         
+             //On Day 1 and Day 2 NewDataEntered Day Email-1
+            if(firstDay == createdDatee || eighthDay == createdDatee ){
+                 String htmlBody='<p>Hi,'+'<br/>'+
+                                 'The undesirable inventory status has been uploaded in the CWP portal for'+' '+'Month :'+ reeMonth + 'Year :'+ reeYear+'<br>'+
+                                 ' Kindly check out and fill the plan for current month as soon as possible.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresss);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Undesirable Inventory Data loaded on CWP Portal for'+''+'Month:'+reeMonth+'Year:'+reeYear);
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                    system.debug('toEmailAddresss====>'+toEmailAddresss);
+                    system.debug('1st Days Mail');
+                    system.debug('mail======>'+mail);
+                
+                //Messaging.sendEmail(new List<messaging.SingleEmailMessage> {mail});
+                Messaging.sendEmail(mailList,false);
+                system.debug('mailList====>'+mailList);
+            
+            }
+              //On Day 3 reminder-2
+                else if(secondDay == createdDatee){ 
+                 String htmlBody='<p>Hi!<br>'+
+                                 'The undesirable inventory status for '+' '+ reeMonth + ' '+reeYear+' has been uploaded in the CWP portal<br>'+
+                                 'Kindly check out and fill the plan for current month as soon as possible.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresss);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Reminder || Undesirable Inventory Plan Submission');
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                //Messaging.sendEmail(new List<messaging.SingleEmailMessage> {mail});
+                
+                Messaging.sendEmail(mailList,false);
+                
+                }       
+               //OnDay 5 reminder-3
+                else if(thirdDay == createdDatee){
+                 String htmlBody='<p>Hi!<br>'+
+                                 'The plan of current month for undesirable inventory is pending. Kindly fill the plan as soon <br>'+
+                                 'as possible since only last two days are remaining.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a> <br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresss);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Reminder 2 || Undesirable Inventory Plan Submission');
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                Messaging.sendEmail(mailList,false);
+                }
+              //OnDay 7 reminder-4
+                else if(fourthDay == createdDatee){
+                String htmlBody='<p>Hi!<br>'+
+                                 'Last day remaining for the undesirable inventory plan to be filled for the current month.<br>'+
+                                 'Kindly fill & submit as the portal will be automatically closed today.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresss);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Reminder 3 || Undesirable Inventory Plan Submission');
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                Messaging.sendEmail(mailList,false);
+                }
+                //OnDay8 reminder-6
+                else if(fivthDay == createdDatee){
+                String htmlBody='<p>Hi!<br>'+
+                                 'The undesirable inventory plan for the current month has been submitted by all the BMs </p>'+
+                                 'and is waiting for your action. Kindly take the necessary action.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresssZSM);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Undesirable Inventory Plan Submitted by'+''+ clusterName.values());
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);   
+                Messaging.sendEmail(mailList,false); 
+                    system.debug('fifthDay Mail');
+                }
+            //OnDay11 reminder-10
+              else if(sixthDay == createdDatee){
+                String htmlBody='<p>Hi!<br>'+
+                                 'The undesirable inventory plan for the current month has been submitted by all the ZSM  <br>'+
+                                 ' and is waiting for your action. Kindly take the necessary action.<br>'+
+                                 ' Please use below link<br>'+
+                                 ' <a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 ' Thanks</p>';
+                mail.setToAddresses(toEmailAddresssDP);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Undesirable Inventory Plan Submitted by '+''+ zoneName.values());
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                
+                //Messaging.sendEmail(new List<messaging.SingleEmailMessage> {mail});
+                Messaging.sendEmail(mailList,false);     
+                }
+               //OnDay12 reminder-11
+                else if(seventhDay == createdDatee){
+                String htmlBody='<p>Hi!<br>'+
+                                 'Last day remaining for the plan of current month for undesirable inventory to be submitted <br>'+
+                                 'Kindly approve it as soon as possible.<br>'+
+                                 'Please use below link<br>'+
+                                 '<a href="https://pidilitecwp--pidilite.sandbox.lightning.force.com/lightning/n/Inventory_Planning">CWP</a><br>'+
+                                 'Thanks</p>';
+                mail.setToAddresses(toEmailAddresssDP);
+                mail.setSenderDisplayName(UserInfo.getLastName());
+                mail.setSubject('Reminder || Undesirable Inventory Plan || Approval Needed');
+                mail.setHtmlBody(htmlBody);
+                mailList.add(mail);
+                //Messaging.sendEmail(new List<messaging.SingleEmailMessage> {mail});
+                Messaging.sendEmail(mailList,false);    
+                }  
+        
+        }
+        catch (Exception e) {
+            System.debug('Problem sending notification: ' + e.getMessage());
+            System.debug('Problem sending Line No notification: '+e.getLineNumber());
+        } 
+    }
+   
+    global void execute(SchedulableContext context){
+        ReminderNotification();
+        sendEmail();
+        //InventoryPlanning_Notification ipn = new InventoryPlanning_Notification ();
+        //String cron= '0 0 15 * * ?' ;
+        //string jobid=system.schedule('InventoryPlanning_NotificationSchedulingInProgress',cron,ipn);  
+        
+       }
+    
+   
+}
